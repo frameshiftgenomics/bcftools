@@ -87,6 +87,8 @@ typedef struct
     int in_frame, out_frame, na_frame, in_frame_alt1, out_frame_alt1, na_frame_alt1;
     int subst[15];
     int *smpl_hets, *smpl_homRR, *smpl_homAA, *smpl_ts, *smpl_tv, *smpl_indels, *smpl_ndp, *smpl_sngl;
+    int **smpl_ins_dist;
+    int **smpl_del_dist;
     int *smpl_hapRef, *smpl_hapAlt, *smpl_missing;
     int *smpl_indel_hets, *smpl_indel_homs;
     int *smpl_frm_shifts; // not-applicable, in-frame, out-frame
@@ -481,6 +483,16 @@ static void init_stats(args_t *args)
             stats->smpl_ts     = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_tv     = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_indels = (int *) calloc(args->files->n_smpl,sizeof(int));
+
+            stats->smpl_ins_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
+            for (int k = 0; k < args->files->n_smpl; k++) {
+                stats->smpl_ins_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
+            }
+            stats->smpl_del_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
+            for (int k = 0; k < args->files->n_smpl; k++) {
+                stats->smpl_del_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
+            }
+
             stats->smpl_dp     = (unsigned long int *) calloc(args->files->n_smpl,sizeof(unsigned long int));
             stats->smpl_ndp    = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_sngl   = (int *) calloc(args->files->n_smpl,sizeof(int));
@@ -909,7 +921,30 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             {
                 if ( gt != GT_HOM_RR )
                 {
+                    int ilen = line->d.var[ial].n;
+                    int jlen = line->d.var[jal].n;
+
+                    // Indel length distribution
+                    int *ptr = stats->smpl_ins_dist[is];
+                    if ( ilen<0 )
+                    {
+                        ilen *= -1;
+                        ptr = stats->smple_del_dist[is];
+                    }
+                    if ( --ilen >= stats->m_indel ) ilen = stats->m_indel-1;
+                    ptr[ilen]++;
+
+                    *ptr = stats->smpl_ins_dist[is];
+                    if ( jlen<0 )
+                    {
+                        jlen *= -1;
+                        ptr = stats->smple_del_dist[is];
+                    }
+                    if ( --jlen >= stats->m_indel ) jlen = stats->m_indel-1;
+                    ptr[jlen]++;
+                   
                     stats->smpl_indels[is]++;
+
                     if ( gt==GT_HET_RA || gt==GT_HET_AA ) stats->smpl_indel_hets[is]++;
                     else if ( gt==GT_HOM_AA ) stats->smpl_indel_homs[is]++;
                 }
