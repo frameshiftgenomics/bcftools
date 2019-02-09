@@ -929,16 +929,16 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
                     if ( ilen<0 )
                     {
                         ilen *= -1;
-                        ptr = stats->smple_del_dist[is];
+                        ptr = stats->smpl_del_dist[is];
                     }
                     if ( --ilen >= stats->m_indel ) ilen = stats->m_indel-1;
                     ptr[ilen]++;
 
-                    *ptr = stats->smpl_ins_dist[is];
+                    ptr = stats->smpl_ins_dist[is];
                     if ( jlen<0 )
                     {
                         jlen *= -1;
-                        ptr = stats->smple_del_dist[is];
+                        ptr = stats->smpl_del_dist[is];
                     }
                     if ( --jlen >= stats->m_indel ) jlen = stats->m_indel-1;
                     ptr[jlen]++;
@@ -1549,6 +1549,19 @@ static void print_stats(args_t *args)
                     stats->smpl_homRR[i], stats->smpl_homAA[i], stats->smpl_hets[i], stats->smpl_ts[i],
                     stats->smpl_tv[i], stats->smpl_indels[i],dp, stats->smpl_sngl[i], stats->smpl_hapRef[i],
                     stats->smpl_hapAlt[i], stats->smpl_missing[i]);
+            }
+        }
+
+        printf("# PSIDD, Per-sample indel distributions. Frameshift addition.\n");
+        printf("# PSIDD\t[2]id\t[3]sample\t[4]length (deletions negative)\t[4]count\n");
+        for (id=0; id<args->nstats; id++)
+        {
+            stats_t *stats = &args->stats[id];
+            for (int k=0; k< args->files->n_smpl; k++) {
+                for (i=stats->m_indel-1; i>=0; i--)
+                    if ( stats->smpl_del_dist[k][i] ) printf("PSIDD\t%d\t%s\t%d\t%d\n", id,args->files->samples[k],-i-1,stats->smpl_del_dist[k][i]);
+                for (i=0; i<stats->m_indel; i++)
+                    if ( stats->smpl_ins_dist[k][i] ) printf("PSIDD\t%d\t%s\t%d\t%d\n", id,args->files->samples[k],i+1,stats->smpl_ins_dist[k][i]);
             }
         }
 
