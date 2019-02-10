@@ -484,12 +484,12 @@ static void init_stats(args_t *args)
             stats->smpl_tv     = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_indels = (int *) calloc(args->files->n_smpl,sizeof(int));
 
+            // spl-alloc
             stats->smpl_ins_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
+            stats->smpl_del_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
+
             for (int k = 0; k < args->files->n_smpl; k++) {
                 stats->smpl_ins_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
-            }
-            stats->smpl_del_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
-            for (int k = 0; k < args->files->n_smpl; k++) {
                 stats->smpl_del_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
             }
 
@@ -578,6 +578,15 @@ static void destroy_stats(args_t *args)
         free(stats->smpl_dp);
         free(stats->smpl_ndp);
         free(stats->smpl_sngl);
+
+        // spl-free
+        for (j = 0; j < args->files->n_smpl; j++) {
+            free(stats->smpl_ins_dist[j]);
+            free(stats->smpl_del_dist[j]);
+        }
+        free(stats->smpl_ins_dist);
+        free(stats->smpl_del_dist);
+
         idist_destroy(&stats->dp);
         idist_destroy(&stats->dp_sites);
         for (j=0; j<stats->nusr; j++)
@@ -921,28 +930,33 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             {
                 if ( gt != GT_HOM_RR )
                 {
-                    int ilen = line->d.var[ial].n;
-                    int jlen = line->d.var[jal].n;
+                    if (ial > 0) {
+                        int ilen = line->d.var[ial].n;
+                        int *ptr = stats->smpl_ins_dist[is];
+                        if ( ilen<0 )
+                        {
+                            ilen *= -1;
+                            ptr = stats->smpl_del_dist[is];
+                        }
+                        if ( --ilen >= stats->m_indel ) ilen = stats->m_indel-1;
+                        ptr[ilen]++;
+
+                    }
+                    if (jal > 0) {
+                        int jlen = line->d.var[jal].n;
+                        int *ptr = stats->smpl_ins_dist[is];
+                        if ( jlen<0 )
+                        {
+                            jlen *= -1;
+                            ptr = stats->smpl_del_dist[is];
+                        }
+                        if ( --jlen >= stats->m_indel ) jlen = stats->m_indel-1;
+                        ptr[jlen]++;
+                    }
+                    // spl-stats
 
                     // Indel length distribution
-                    int *ptr = stats->smpl_ins_dist[is];
-                    if ( ilen<0 )
-                    {
-                        ilen *= -1;
-                        ptr = stats->smpl_del_dist[is];
-                    }
-                    if ( --ilen >= stats->m_indel ) ilen = stats->m_indel-1;
-                    ptr[ilen]++;
 
-                    ptr = stats->smpl_ins_dist[is];
-                    if ( jlen<0 )
-                    {
-                        jlen *= -1;
-                        ptr = stats->smpl_del_dist[is];
-                    }
-                    if ( --jlen >= stats->m_indel ) jlen = stats->m_indel-1;
-                    ptr[jlen]++;
-                   
                     stats->smpl_indels[is]++;
 
                     if ( gt==GT_HET_RA || gt==GT_HET_AA ) stats->smpl_indel_hets[is]++;
