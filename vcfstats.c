@@ -87,8 +87,8 @@ typedef struct
     int in_frame, out_frame, na_frame, in_frame_alt1, out_frame_alt1, na_frame_alt1;
     int subst[15];
     int *smpl_hets, *smpl_homRR, *smpl_homAA, *smpl_ts, *smpl_tv, *smpl_indels, *smpl_ndp, *smpl_sngl;
-    int **smpl_ins_dist;
-    int **smpl_del_dist;
+    int **smpl_het_ins_dist, **smpl_het_del_dist;
+    int **smpl_hom_ins_dist, **smpl_hom_del_dist;
     int *smpl_hapRef, *smpl_hapAlt, *smpl_missing;
     int *smpl_indel_hets, *smpl_indel_homs;
     int *smpl_frm_shifts; // not-applicable, in-frame, out-frame
@@ -484,13 +484,16 @@ static void init_stats(args_t *args)
             stats->smpl_tv     = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_indels = (int *) calloc(args->files->n_smpl,sizeof(int));
 
-            // spl-alloc
-            stats->smpl_ins_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
-            stats->smpl_del_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
+            stats->smpl_het_ins_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
+            stats->smpl_het_del_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
+            stats->smpl_hom_ins_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
+            stats->smpl_hom_del_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
 
             for (int k = 0; k < args->files->n_smpl; k++) {
-                stats->smpl_ins_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
-                stats->smpl_del_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
+                stats->smpl_het_ins_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
+                stats->smpl_het_del_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
+                stats->smpl_hom_ins_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
+                stats->smpl_hom_del_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
             }
 
             stats->smpl_dp     = (unsigned long int *) calloc(args->files->n_smpl,sizeof(unsigned long int));
@@ -579,13 +582,16 @@ static void destroy_stats(args_t *args)
         free(stats->smpl_ndp);
         free(stats->smpl_sngl);
 
-        // spl-free
         for (j = 0; j < args->files->n_smpl; j++) {
-            free(stats->smpl_ins_dist[j]);
-            free(stats->smpl_del_dist[j]);
+            free(stats->smpl_het_ins_dist[j]);
+            free(stats->smpl_het_del_dist[j]);
+            free(stats->smpl_hom_ins_dist[j]);
+            free(stats->smpl_hom_del_dist[j]);
         }
-        free(stats->smpl_ins_dist);
-        free(stats->smpl_del_dist);
+        free(stats->smpl_het_ins_dist);
+        free(stats->smpl_het_del_dist);
+        free(stats->smpl_hom_ins_dist);
+        free(stats->smpl_hom_del_dist);
 
         idist_destroy(&stats->dp);
         idist_destroy(&stats->dp_sites);
@@ -930,33 +936,55 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             {
                 if ( gt != GT_HOM_RR )
                 {
-                    if (ial > 0) {
-                        int ilen = line->d.var[ial].n;
-                        int *ptr = stats->smpl_ins_dist[is];
-                        if ( ilen<0 )
-                        {
-                            ilen *= -1;
-                            ptr = stats->smpl_del_dist[is];
+                    if ( gt == GT_HOM_AA ) {
+                        if (ial > 0) {
+                            int ilen = line->d.var[ial].n;
+                            int *ptr = stats->smpl_hom_ins_dist[is];
+                            if ( ilen<0 )
+                            {
+                                ilen *= -1;
+                                ptr = stats->smpl_hom_del_dist[is];
+                            }
+                            if ( --ilen >= stats->m_indel ) ilen = stats->m_indel-1;
+                            ptr[ilen]++;
+    
                         }
-                        if ( --ilen >= stats->m_indel ) ilen = stats->m_indel-1;
-                        ptr[ilen]++;
-
-                    }
-                    if (jal > 0) {
-                        int jlen = line->d.var[jal].n;
-                        int *ptr = stats->smpl_ins_dist[is];
-                        if ( jlen<0 )
-                        {
-                            jlen *= -1;
-                            ptr = stats->smpl_del_dist[is];
+                        if (jal > 0) {
+                            int jlen = line->d.var[jal].n;
+                            int *ptr = stats->smpl_hom_ins_dist[is];
+                            if ( jlen<0 )
+                            {
+                                jlen *= -1;
+                                ptr = stats->smpl_hom_del_dist[is];
+                            }
+                            if ( --jlen >= stats->m_indel ) jlen = stats->m_indel-1;
+                            ptr[jlen]++;
                         }
-                        if ( --jlen >= stats->m_indel ) jlen = stats->m_indel-1;
-                        ptr[jlen]++;
+                    } else if ( gt == GT_HET_RA || gt == GT_HET_AA ) {
+                        if (ial > 0) {
+                            int ilen = line->d.var[ial].n;
+                            int *ptr = stats->smpl_het_ins_dist[is];
+                            if ( ilen<0 )
+                            {
+                                ilen *= -1;
+                                ptr = stats->smpl_het_del_dist[is];
+                            }
+                            if ( --ilen >= stats->m_indel ) ilen = stats->m_indel-1;
+                            ptr[ilen]++;
+    
+                        }
+                        if (jal > 0) {
+                            int jlen = line->d.var[jal].n;
+                            int *ptr = stats->smpl_het_ins_dist[is];
+                            if ( jlen<0 )
+                            {
+                                jlen *= -1;
+                                ptr = stats->smpl_het_del_dist[is];
+                            }
+                            if ( --jlen >= stats->m_indel ) jlen = stats->m_indel-1;
+                            ptr[jlen]++;
+                        }
                     }
-                    // spl-stats
-
-                    // Indel length distribution
-
                     stats->smpl_indels[is]++;
 
                     if ( gt==GT_HET_RA || gt==GT_HET_AA ) stats->smpl_indel_hets[is]++;
@@ -1567,15 +1595,19 @@ static void print_stats(args_t *args)
         }
 
         printf("# PSIDD, Per-sample indel distributions. Frameshift addition.\n");
-        printf("# PSIDD\t[2]id\t[3]sample\t[4]length (deletions negative)\t[4]count\n");
+        printf("# PSIDD\t[2]id\t[3]sample\t[4]het/hom\t[5]length (deletions negative)\t[6]count\n");
         for (id=0; id<args->nstats; id++)
         {
             stats_t *stats = &args->stats[id];
             for (int k=0; k< args->files->n_smpl; k++) {
                 for (i=stats->m_indel-1; i>=0; i--)
-                    if ( stats->smpl_del_dist[k][i] ) printf("PSIDD\t%d\t%s\t%d\t%d\n", id,args->files->samples[k],-i-1,stats->smpl_del_dist[k][i]);
+                    if ( stats->smpl_het_del_dist[k][i] ) printf("PSIDD\t%d\t%s\tHET\t%d\t%d\n", id,args->files->samples[k],-i-1,stats->smpl_het_del_dist[k][i]);
                 for (i=0; i<stats->m_indel; i++)
-                    if ( stats->smpl_ins_dist[k][i] ) printf("PSIDD\t%d\t%s\t%d\t%d\n", id,args->files->samples[k],i+1,stats->smpl_ins_dist[k][i]);
+                    if ( stats->smpl_het_ins_dist[k][i] ) printf("PSIDD\t%d\t%s\tHET\t%d\t%d\n", id,args->files->samples[k],i+1,stats->smpl_het_ins_dist[k][i]);
+                for (i=stats->m_indel-1; i>=0; i--)
+                    if ( stats->smpl_hom_del_dist[k][i] ) printf("PSIDD\t%d\t%s\tHOM\t%d\t%d\n", id,args->files->samples[k],-i-1,stats->smpl_hom_del_dist[k][i]);
+                for (i=0; i<stats->m_indel; i++)
+                    if ( stats->smpl_hom_ins_dist[k][i] ) printf("PSIDD\t%d\t%s\tHOM\t%d\t%d\n", id,args->files->samples[k],i+1,stats->smpl_hom_ins_dist[k][i]);
             }
         }
 
