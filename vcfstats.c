@@ -399,7 +399,7 @@ static void init_user_stats(args_t *args, bcf_hdr_t *hdr, stats_t *stats)
 }
 static void init_stats(args_t *args)
 {
-    int i;
+    int i, k;
     args->nstats = args->files->nreaders==1 ? 1 : 3;
     if ( args->split_by_id ) args->nstats = 2;
 
@@ -489,7 +489,7 @@ static void init_stats(args_t *args)
             stats->smpl_hom_ins_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
             stats->smpl_hom_del_dist = (int **) calloc(args->files->n_smpl, sizeof(int *));
 
-            for (int k = 0; k < args->files->n_smpl; k++) {
+            for (k = 0; k < args->files->n_smpl; k++) {
                 stats->smpl_het_ins_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
                 stats->smpl_het_del_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
                 stats->smpl_hom_ins_dist[k] = (int *) calloc(stats->m_indel, sizeof(int));
@@ -1599,7 +1599,7 @@ static void print_stats(args_t *args)
         for (id=0; id<args->nstats; id++)
         {
             stats_t *stats = &args->stats[id];
-            for (int k=0; k< args->files->n_smpl; k++) {
+            for (k=0; k< args->files->n_smpl; k++) {
                 for (i=stats->m_indel-1; i>=0; i--)
                     if ( stats->smpl_het_del_dist[k][i] ) printf("PSIDD\t%d\t%s\tHET\t%d\t%d\n", id,args->files->samples[k],-i-1,stats->smpl_het_del_dist[k][i]);
                 for (i=0; i<stats->m_indel; i++)
